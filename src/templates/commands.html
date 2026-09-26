@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Room Control - Commands</title>
+<style>
+  body { font-family: monospace; background: #f4f4f0; margin: 0; padding: 20px; color: #222; }
+  h1 { font-size: 18px; margin: 0 0 4px 0; }
+  .panel { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 10px 0; }
+  button { padding: 8px 16px; margin-right: 8px; margin-bottom: 8px; border: 1px solid #999; border-radius: 4px; background: #e0e0e0; cursor: pointer; font-family: monospace; font-size: 14px; }
+  button:hover { background: #d0d0d0; }
+  .unlock-btn { background: #b8e6b0; }
+  .unlock-btn:hover { background: #9ed494; }
+  .lock-btn { background: #f2c4c4; }
+  .lock-btn:hover { background: #eaa9a9; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 4px; background: #333; color: #fff; font-size: 12px; font-weight: bold; min-width: 70px; text-align: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size: 13px; }
+  input[type=color] { width: 48px; height: 34px; border: 1px solid #999; border-radius: 4px; padding: 2px; cursor: pointer; }
+  input[type=range] { width: 200px; }
+  .nav { margin-bottom: 16px; }
+  .nav a { display: inline-block; padding: 6px 14px; margin-right: 4px; border: 1px solid #999; border-bottom: none; border-radius: 4px 4px 0 0; background: #e8e8e8; color: #222; text-decoration: none; font-size: 13px; }
+  .nav a.active { background: #fff; font-weight: bold; }
+</style>
+</head>
+<body>
+
+{% include "_nav.html" %}
+
+<h1>Commands</h1>
+<p style="font-size: 13px; color: #555; margin-top: 0;">Raw hardware control - none of this changes the game state or stage progression.</p>
+
+<div class="panel">
+  <h2>Maglocks</h2>
+  <div class="row">
+    <span style="width: 160px;">Lock 52 (Option A door)</span>
+    <span class="badge" id="lock52-badge">-</span>
+    <button class="unlock-btn" onclick="setLock('52', 'unlock')">Unlock</button>
+    <button class="lock-btn" onclick="setLock('52', 'lock')">Lock</button>
+  </div>
+  <div class="row">
+    <span style="width: 160px;">Lock 44 (Option B door)</span>
+    <span class="badge" id="lock44-badge">-</span>
+    <button class="unlock-btn" onclick="setLock('44', 'unlock')">Unlock</button>
+    <button class="lock-btn" onclick="setLock('44', 'lock')">Lock</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>LEDs</h2>
+  <div class="row">
+    <input type="color" id="led-color" value="#ffffff">
+    <label>brightness <input type="range" id="led-brightness" min="0" max="255" value="150"></label>
+    <span id="led-brightness-val">150</span>
+    <button onclick="setLed()">Set color</button>
+    <button onclick="ledOff()">LEDs off</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Sensors (live)</h2>
+  <table>
+    <thead><tr><th>Sensor</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td>IR beam</td><td id="sensor-ir">-</td></tr>
+      <tr><td>Reader P53</td><td id="sensor-p53">-</td></tr>
+      <tr><td>Reader P51</td><td id="sensor-p51">-</td></tr>
+      <tr><td>Reader P49</td><td id="sensor-p49">-</td></tr>
+      <tr><td>Reader P47</td><td id="sensor-p47">-</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+async function setLock(lockId, action) {
+  await fetch(`/raw/lock/${lockId}/${action}`, { method: "POST" });
+}
+
+async function setLed() {
+  const color = document.getElementById("led-color").value;
+  const brightness = document.getElementById("led-brightness").value;
+  await fetch("/raw/led", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ color, brightness }),
+  });
+}
+
+async function ledOff() {
+  await fetch("/raw/led/off", { method: "POST" });
+}
+
+document.getElementById("led-brightness").addEventListener("input", (e) => {
+  document.getElementById("led-brightness-val").textContent = e.target.value;
+});
+
+function formatReading(val) {
+  if (val === undefined) return "-";
+  if (val === "EMPTY") return "empty";
+  const parts = val.split(",");
+  if (parts.length === 3) {
+    return `${parts[0]},${parts[1]} [${parts[2]}]`;
+  }
+  return val;
+}
+
+async function pollSensors() {
+  try {
+    const res = await fetch("/sensors");
+    const data = await res.json();
+    document.getElementById("sensor-ir").textContent = data.IR || "-";
+    document.getElementById("sensor-p53").textContent = formatReading(data.P53);
+    document.getElementById("sensor-p51").textContent = formatReading(data.P51);
+    document.getElementById("sensor-p49").textContent = formatReading(data.P49);
+    document.getElementById("sensor-p47").textContent = formatReading(data.P47);
+
+    const lock52 = document.getElementById("lock52-badge");
+    lock52.textContent = data.LOCK52 || "-";
+    lock52.style.background = data.LOCK52 === "UNLOCKED" ? "#3a9e3a" : "#333";
+
+    const lock44 = document.getElementById("lock44-badge");
+    lock44.textContent = data.LOCK44 || "-";
+    lock44.style.background = data.LOCK44 === "UNLOCKED" ? "#3a9e3a" : "#333";
+  } catch (e) {
+    // serial hiccup - leave last known readings on screen
+  }
+}
+
+setInterval(pollSensors, 1000);
+pollSensors();
+</script>
+
+</body>
+</html>

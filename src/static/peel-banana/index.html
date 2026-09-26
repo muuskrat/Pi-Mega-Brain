@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peel Banana — standalone export</title>
+<link rel="stylesheet" href="style.css">
+<!--
+  Standalone export of the "Peel Banana" mini-game from Little Nook
+  (a Tamagotchi-style pet game) — see js/minigames/peel.js in the main
+  project for the original. This folder is self-contained for the GAME
+  itself (style.css, script.js, assets/, no build step) - but the
+  LEADERBOARD is not: it's stored server-side now, not in localStorage.
+
+  HOW TO INTEGRATE INTO YOUR OWN SITE
+  ------------------------------------
+  1. Copy this whole folder (or just style.css + script.js + assets/)
+     into your project.
+  2. Your server needs two routes (see the reference Flask implementation
+     this was pulled into for the exact shape):
+       GET  /banana/leaderboard          -> JSON array of saved entries
+       POST /banana/leaderboard {entry}  -> appends one, returns {ok}
+     Without these, play still works but Save/Leaderboard silently no-op.
+  3. Include style.css and script.js, then call:
+       mountPeelBananaGame(container, { onEnd })
+     where:
+       - `container` is any DOM element to mount the game into.
+       - `onEnd(score)` is optional — called once per round with the
+         integer score just earned, purely as an informational hook (e.g.
+         to log it elsewhere). Not required for the widget to work.
+  4. That's it — mount once. Replaying, naming + saving a banana, and
+     browsing the leaderboard (highest score first, each entry showing a
+     small thumbnail of the actual banana that earned it) are all handled
+     internally inside `container`.
+
+  The demo script below (at the bottom of this file) shows the minimal
+  wiring: just mount it on load. Opened standalone (no Flask backing it),
+  the game itself still works fine - only Save/Leaderboard will fail quietly.
+-->
+</head>
+<body>
+
+<div id="demo-card">
+  <h1>🍌 Peel Banana</h1>
+  <div id="peel-banana-root"></div>
+</div>
+
+<script src="script.js"></script>
+<script>
+  // ---- demo wiring (not part of the exported game itself) ----
+  // Replay, saving, and the leaderboard are all handled inside the widget
+  // itself now, so the host page just needs this one call.
+  document.addEventListener('DOMContentLoaded', function () {
+    mountPeelBananaGame(document.getElementById('peel-banana-root'));
+  });
+</script>
+
+</body>
+</html>

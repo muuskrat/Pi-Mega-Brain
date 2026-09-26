@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 64" width="20" height="64">
+  <!-- PLACEHOLDER ICON — Peel Banana mini-game, fully-peeled state. Same
+       tapered-body silhouette and canvas as peel-banana-whole.svg (just a
+       pale flesh color) so the reveal lines up seamlessly. Rendered 3
+       times in-game, one per vertical third, each with its own CSS sepia
+       filter amount so a section can look freshly pale or browned/bruised
+       — see BROWN_MIN/MAX and buildBrownFilter() in js/minigames/peel.js. -->
+  <g fill="none" stroke="#4A4038" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="7" y="0" width="6" height="8" rx="3" fill="#8B6F47"/>
+    <path d="M2 20 C2 12 5 6 10 6 C15 6 18 12 18 20 L18 44 C18 52 15 58 10 58 C5 58 2 52 2 44 Z" fill="#F6EFD8"/>
+  </g>
+</svg>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Room Control</title>
+<style>
+  body { font-family: monospace; background: #f4f4f0; margin: 0; padding: 20px; color: #222; }
+  h1 { font-size: 18px; margin: 0 0 4px 0; }
+  .state-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #333; color: #fff; font-weight: bold; }
+  .panel { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+  .controls button { padding: 10px 18px; margin-right: 8px; margin-bottom: 8px; border: 1px solid #999; border-radius: 4px; background: #e0e0e0; cursor: pointer; font-family: monospace; font-size: 14px; }
+  .controls button:hover { background: #d0d0d0; }
+  #shutdown-btn { background: #f2c4c4; }
+  #shutdown-btn:hover { background: #eaa9a9; }
+  .force-btn { padding: 6px 12px; border: 1px solid #999; border-radius: 4px; background: #f0e6a8; cursor: pointer; font-family: monospace; }
+  .force-btn:hover { background: #e6d888; }
+  .through-btn { padding: 6px 12px; border: 1px solid #999; border-radius: 4px; background: #a8c8f0; cursor: pointer; font-family: monospace; margin-left: 4px; }
+  .through-btn:hover { background: #88b0e6; }
+  .force-btn:disabled, .through-btn:disabled { background: #e8e8e8; color: #aaa; cursor: not-allowed; }
+  .stage { border-bottom: 1px solid #ddd; }
+  .stage:last-child { border-bottom: none; }
+  .stage-header { display: flex; align-items: center; gap: 10px; padding: 10px 4px; cursor: pointer; user-select: none; }
+  .stage-caret { display: inline-block; width: 10px; transition: transform 0.15s; }
+  .stage.open .stage-caret { transform: rotate(90deg); }
+  .stage-label { flex: 1; }
+  .stage-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #eee; color: #888; }
+  .stage-status.status-active { background: #fff3b0; color: #8a6d00; font-weight: bold; }
+  .stage-status.status-finished { background: #d4f0d4; color: #2c7a2c; }
+  .stage-body { display: none; padding: 0 8px 12px 24px; }
+  .stage.open .stage-body { display: flex; justify-content: flex-end; align-items: center; }
+  .stage-toolbar { margin-bottom: 10px; }
+  .stage-toolbar button { padding: 6px 12px; margin-right: 6px; border: 1px solid #999; border-radius: 4px; background: #e0e0e0; cursor: pointer; font-family: monospace; font-size: 12px; }
+  .stage-toolbar button:hover { background: #d0d0d0; }
+  #log { background: #111; color: #ccc; font-size: 12px; padding: 10px; height: 220px; overflow-y: auto; border-radius: 4px; white-space: pre-wrap; }
+  .nav { margin-bottom: 16px; }
+  .nav a { display: inline-block; padding: 6px 14px; margin-right: 4px; border: 1px solid #999; border-bottom: none; border-radius: 4px 4px 0 0; background: #e8e8e8; color: #222; text-decoration: none; font-size: 13px; }
+  .nav a.active { background: #fff; font-weight: bold; }
+
+  /* Shh. */
+  #secret-btn { position: fixed; bottom: 14px; right: 14px; width: 26px; height: 26px; border-radius: 50%; background: #e6d888; border: 1px solid #c9b95f; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer; transition: transform 0.15s, background 0.15s; }
+  #secret-btn:hover { background: #d8c460; transform: scale(1.15); }
+  .banana-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: center; justify-content: center; }
+  .banana-modal.open { display: flex; }
+  .banana-modal-inner { position: relative; background: #fff; border-radius: 12px; padding: 8px; }
+  .banana-modal-inner iframe { width: 400px; height: 540px; max-width: 90vw; max-height: 85vh; border: none; border-radius: 8px; display: block; }
+  .banana-close { position: absolute; top: -12px; right: -12px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #999; background: #fff; cursor: pointer; font-size: 16px; line-height: 1; }
+  .banana-close:hover { background: #eee; }
+</style>
+</head>
+<body>
+
+{% include "_nav.html" %}
+
+<h1>Control panel &nbsp; current state: <span id="state-badge" class="state-badge">-</span></h1>
+
+<div class="panel controls">
+  <button onclick="sendCommand('power_on')">power on</button>
+  <button onclick="confirmSendCommand('reset')">reset</button>
+  <button onclick="confirmSendCommand('reload')">reload</button>
+  <button onclick="confirmSendCommand('prepare')">prepare</button>
+  <button onclick="confirmSendCommand('start')">start</button>
+  <button id="shutdown-btn" onclick="sendCommand('shutdown')">shut down</button>
+</div>
+
+<div class="panel">
+  <div class="stage-toolbar">
+    <button onclick="openAllStages()">open all</button>
+    <button onclick="closeAllStages()">close all</button>
+    <button onclick="onlyCurrentStage()">only current</button>
+  </div>
+  {% for stage in stages %}
+  <div class="stage" data-id="{{ stage.id }}" data-order="{{ stage.order }}">
+    <div class="stage-header" onclick="toggleStage('{{ stage.id }}')">
+      <span class="stage-caret">&#9656;</span>
+      <span class="stage-label">{{ stage.label }}</span>
+      <span class="stage-status" id="status-{{ stage.id }}"></span>
+    </div>
+    <div class="stage-body">
+      <button class="force-btn" onclick="forceStage('{{ stage.id }}')">F</button>
+      {% if stage.through %}
+      <button class="through-btn" onclick="forceThrough('{{ stage.id }}')">&gt;&gt;</button>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="panel">
+  <div id="log"></div>
+</div>
+
+<div id="secret-btn" onclick="openBananaGame()"></div>
+<div class="banana-modal" id="banana-modal">
+  <div class="banana-modal-inner">
+    <button class="banana-close" onclick="closeBananaGame()">&times;</button>
+    <iframe id="banana-frame" src="about:blank"></iframe>
+  </div>
+</div>
+
+<script>
+async function sendCommand(cmd) {
+  await fetch(`/command/${cmd}`, { method: "POST" });
+}
+
+async function confirmSendCommand(cmd) {
+  if (confirm(`Are you sure you want to ${cmd}?`)) {
+    await sendCommand(cmd);
+  }
+}
+
+async function forceStage(stageId) {
+  await fetch(`/force/${stageId}`, { method: "POST" });
+}
+
+async function forceThrough(stageId) {
+  await fetch(`/through/${stageId}`, { method: "POST" });
+}
+
+function openBananaGame() {
+  document.getElementById("banana-frame").src = "/static/peel-banana/index.html";
+  document.getElementById("banana-modal").classList.add("open");
+}
+
+function closeBananaGame() {
+  document.getElementById("banana-modal").classList.remove("open");
+  document.getElementById("banana-frame").src = "about:blank"; // reset so reopening starts a fresh round
+}
+
+function toggleStage(stageId) {
+  document.querySelector(`.stage[data-id="${stageId}"]`).classList.toggle("open");
+}
+
+function setStageOpen(stageId, open) {
+  document.querySelector(`.stage[data-id="${stageId}"]`).classList.toggle("open", open);
+}
+
+function openAllStages() {
+  document.querySelectorAll(".stage").forEach(el => el.classList.add("open"));
+}
+
+function closeAllStages() {
+  document.querySelectorAll(".stage").forEach(el => el.classList.remove("open"));
+}
+
+function onlyCurrentStage() {
+  document.querySelectorAll(".stage").forEach(el => {
+    el.classList.toggle("open", el.dataset.id === lastKnownState);
+  });
+}
+
+let lastKnownState = null;
+
+async function pollState() {
+  try {
+    const res = await fetch("/state");
+    const data = await res.json();
+    document.getElementById("state-badge").textContent = data.state;
+    const logEl = document.getElementById("log");
+    const wasAtBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
+    logEl.textContent = data.log.join("\n");
+    if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
+
+    document.querySelectorAll(".stage").forEach(el => {
+      const order = Number(el.dataset.order);
+      const id = el.dataset.id;
+      const passed = order < data.stage_order;
+      const active = id === data.state;
+
+      // A stage already behind the room can't be forced/through'd again -
+      // only a RESET (which sends stage_order back to -1) re-enables it.
+      el.querySelectorAll("button").forEach(btn => btn.disabled = passed);
+
+      const statusEl = document.getElementById(`status-${id}`);
+      statusEl.textContent = active ? "active" : passed ? "finished" : "";
+      statusEl.className = "stage-status" + (active ? " status-active" : passed ? " status-finished" : "");
+    });
+
+    // Only force a dropdown open/closed the moment the room actually
+    // transitions into or past that stage - not on every poll tick, so a
+    // manual toggle in between two transitions isn't immediately undone.
+    if (data.state !== lastKnownState) {
+      document.querySelectorAll(".stage").forEach(el => {
+        const order = Number(el.dataset.order);
+        const id = el.dataset.id;
+        if (id === data.state) setStageOpen(id, true);
+        else if (order < data.stage_order) setStageOpen(id, false);
+      });
+      lastKnownState = data.state;
+    }
+  } catch (e) {
+    document.getElementById("state-badge").textContent = "DISCONNECTED";
+  }
+}
+
+setInterval(pollState, 1000);
+pollState();
+</script>
+
+</body>
+</html>

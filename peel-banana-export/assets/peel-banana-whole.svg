@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 64" width="20" height="64">
+  <!-- PLACEHOLDER ICON — Peel Banana mini-game, unpeeled state. A thin
+       body with a rounded taper at the top and bottom (straight parallel
+       sides through the middle) rather than a plain cylinder or a curved
+       crescent, so it reads as a banana while its 3 peel sections can
+       still be simple equal VERTICAL thirds (left/middle/right) — see
+       js/minigames/peel.js, which clips this same image 3 times via
+       clip-path: inset(0 right% 0 left%). The canvas is sized to the
+       body's own width (not a generic square) specifically so those 3
+       equal canvas-width thirds line up with 3 *roughly* equal thirds of
+       the body itself — a wider/squarer canvas around a body this thin
+       would put almost the entire banana inside just the middle third.
+       Also used as the mini-games tab icon. -->
+  <g fill="none" stroke="#4A4038" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="7" y="0" width="6" height="8" rx="3" fill="#8B6F47"/>
+    <path d="M2 20 C2 12 5 6 10 6 C15 6 18 12 18 20 L18 44 C18 52 15 58 10 58 C5 58 2 52 2 44 Z" fill="#F0CB4E"/>
+    <path d="M7.3 20 L7.3 44" fill="none" stroke="#C9A93A" stroke-width="1" opacity="0.5"/>
+    <path d="M13.7 20 L13.7 44" fill="none" stroke="#C9A93A" stroke-width="1" opacity="0.5"/>
+  </g>
+</svg>

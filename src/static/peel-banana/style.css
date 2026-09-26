@@ -1,0 +1,277 @@
+/* Peel Banana — standalone export from Little Nook (js/minigames/peel.js +
+   the .peel-* / .game-* rules in css/style.css). Only the CSS this one
+   game actually needs, trimmed out of the full project stylesheet. */
+
+:root {
+  --tan:        #D9CFC2;
+  --ink:        #4A4038;
+  --ink-soft:   #7A6E63;
+  --card:       #FBF6EF;
+  --sand:       #D9A066;
+  --food-color: #D9A066;
+}
+
+body {
+  font-family: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  background: #EFE7DC;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+}
+
+/* Demo wrapper only — not required by the game itself, just gives the
+   exported widget a card to sit in on this demo page. */
+#demo-card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 20px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(74, 64, 56, 0.18);
+}
+#demo-card h1 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+/* ---------- generic mini-game chrome ---------- */
+.game-stage {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  background: linear-gradient(180deg, #cfe3ea, #eef6f3);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid var(--tan);
+  touch-action: none;
+}
+.game-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin: 8px 2px;
+  font-size: 14px;
+}
+.game-overlay-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(251,246,239,0.9);
+  text-align: center;
+  padding: 20px;
+}
+.primary-btn {
+  border: none;
+  background: var(--sand);
+  color: white;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.primary-btn:hover { filter: brightness(0.95); }
+.primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.secondary-btn {
+  border: 1px solid var(--tan);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.secondary-btn:hover { background: #f4efe7; }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.link-btn:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---------- Peel Banana specifics ---------- */
+.peel-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.peel-banana-wrap {
+  position: relative;
+  z-index: 0;
+  /* Matches the art's own 20:64 aspect ratio exactly — a squarer box
+     around art this narrow would letterbox hard enough to squeeze nearly
+     the whole visible banana into just the middle clip third, leaving the
+     left/right thirds almost entirely empty/unclickable. */
+  width: 69px;
+  height: 220px;
+  user-select: none;
+}
+.peel-banana-wrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2));
+}
+/* Hidden by default - NOT just relying on the skin's z-index to hide it,
+   because the whole-banana artwork is a tapered silhouette on a transparent
+   background, so a glow's drop-shadow can bleed through the skin's own
+   transparent padding even while it's sitting on top. Genuinely opacity:0
+   is the only thing that reliably hides it. Revealed by the sibling rules
+   below - on hover (a peek, without actually peeling) or once peeled
+   (permanent, matches how it's always displayed today). */
+.peel-flesh-section { position: absolute; inset: 0; z-index: 1; opacity: 0; transition: opacity 0.2s ease; }
+.peel-section {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: pointer;
+  transition: opacity 0.35s ease, transform 0.35s ease, filter 0.15s ease;
+}
+/* Peek: hovering an un-peeled section dims the skin AND reveals the flesh
+   (+glow) beneath it, without actually peeling it. Once peeled, the flesh
+   stays revealed regardless of hover - same reveal, just permanent. Skin
+   comes before flesh in the DOM specifically so `+` can pair them up. */
+.peel-section:not(.peeled):hover { opacity: 0.35; filter: brightness(1.05); }
+.peel-section:hover + .peel-flesh-section,
+.peel-section.peeled + .peel-flesh-section {
+  opacity: 1;
+}
+.peel-section.peeled {
+  opacity: 0;
+  transform: translate(var(--peel-out-x, 0px), -8px) rotate(var(--peel-out-rot, -10deg));
+  pointer-events: none;
+}
+.peel-strip-bit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 22px;
+  border-radius: 40% 40% 50% 50%;
+  background: var(--food-color);
+  pointer-events: none;
+  z-index: 3;
+  animation: peel-strip-fly 0.5s ease-out forwards;
+}
+@keyframes peel-strip-fly {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--peel-dx, 40px)), calc(-50% + var(--peel-dy, -40px))) rotate(var(--peel-rot, 45deg)) scale(0.6); }
+}
+.peel-quality-label {
+  position: absolute;
+  top: 38%;
+  transform: translate(-50%, 0);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 4;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  animation: peel-quality-float 1.3s ease-out forwards;
+}
+@keyframes peel-quality-float {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
+  15%  { opacity: 1; transform: translate(-50%, -6px) scale(1.1); }
+  75%  { opacity: 1; transform: translate(-50%, -18px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(0.95); }
+}
+
+/* Sits below the quality-tier label (top: 38%) and lingers longer (2s vs
+   1.3s) so a player has a couple seconds to actually read the number,
+   not just the rarity word. */
+.peel-points-label {
+  position: absolute;
+  top: 58%;
+  transform: translate(-50%, 0);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 4;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  animation: peel-points-float 2s ease-out forwards;
+}
+@keyframes peel-points-float {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
+  10%  { opacity: 1; transform: translate(-50%, -4px) scale(1); }
+  80%  { opacity: 1; transform: translate(-50%, -16px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -22px) scale(0.95); }
+}
+
+/* ---------- End-of-round screen: score, name, save ---------- */
+.game-end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  text-align: center;
+}
+.save-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.save-row input {
+  padding: 8px 10px;
+  border: 1px solid var(--tan);
+  border-radius: 8px;
+  font-size: 13px;
+  width: 150px;
+  font-family: inherit;
+  color: var(--ink);
+}
+.save-confirm { font-size: 12px; color: #2c7a2c; font-weight: 700; }
+.end-actions { display: flex; gap: 8px; margin-top: 6px; }
+
+/* ---------- Small non-interactive banana thumbnail (end screen + leaderboard) ---------- */
+.peel-mini-banana { position: relative; width: 22px; height: 70px; flex-shrink: 0; }
+.peel-mini-section { position: absolute; inset: 0; }
+.peel-mini-section img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------- Leaderboard ---------- */
+.leaderboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--tan);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.leaderboard-rank { font-weight: 800; width: 26px; color: var(--ink-soft); font-size: 13px; }
+.leaderboard-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leaderboard-tier { font-size: 11px; font-weight: 700; }
+.leaderboard-score { font-weight: 800; font-size: 14px; min-width: 34px; text-align: right; }
