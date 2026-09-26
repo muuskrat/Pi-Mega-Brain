@@ -21,10 +21,9 @@ line commands to the Mega and parses whatever it prints back.
 
 ## Source control
 
-Repo: https://github.com/muuskrat/Pi-Mega-Brain (`main` branch). `.pio/`,
-`__pycache__/`, and the runtime-generated `src/banana_leaderboard.txt` are
-gitignored — don't try to commit those. Git author identity (`user.name`/
-`user.email`) is set repo-locally on this machine, not globally.
+Repo: https://github.com/muuskrat/Pi-Mega-Brain (`main` branch). `.pio/` and
+`__pycache__/` are gitignored — don't try to commit those. Git author identity
+(`user.name`/`user.email`) is set repo-locally on this machine, not globally.
 
 ## Hardware / pin map
 
@@ -121,129 +120,6 @@ Three pages, shared nav in `templates/_nav.html`:
     (collapses every row except whichever matches the live state).
   - `F` (force) and `>>` (force-through) sit inside each row's dropdown,
     right-aligned.
-  - Easter egg: a gold dot in the bottom-right corner (`#secret-btn` — small
-    but deliberately visible now, was originally background-matched/near-
-    invisible) opens a modal with the "Peel Banana" mini-game, sandboxed in an
-    `<iframe>` pointed at `/static/peel-banana/index.html`. That's a
-    standalone export from an unrelated project ("Little Nook") that got
-    dropped into this repo at `peel-banana-export/` — the copy actually
-    served lives at `src/static/peel-banana/` (Flask's default static
-    folder), and needs to be re-copied there by hand after editing the
-    source export (no build step wires them together). It's fully
-    self-contained (own `style.css`/`script.js`/`assets/`), which is exactly
-    why it was safe to iframe rather than inline — inlining its CSS would
-    have clobbered the Control Panel's own `body`/`:root` styles.
-    - Peel all 3 sections to reveal a **score** (not currency — this isn't
-      wired to any reward system) and one of **11** rarity tiers (Rotten →
-      Crap → Common → Uncommon → Rare → Epic → Mythic → Legendary → Ascended
-      → Divine → Celestial), rolled from a per-section "brownness" value
-      that's sealed before the first click and only revealed as you peel.
-      Only **Rare and up** glow, on a 1 (Rare, barely-there) to 7 (Celestial,
-      maximal) scale derived from the tier's own color — so the rarer the
-      banana, the more intense the glow — and the banana itself is tinted to
-      match: `buildBrownFilter()` layers a `hue-rotate()` on top of the
-      brown/sepia effect, computed from the tier color's own hue relative to
-      `SEPIA_BASE_HUE` (35°, roughly where a browser's `sepia(1)` lands a
-      pale source pixel), so it isn't hardcoded per tier and stays correct
-      if a tier's color ever changes.
-
-      **Before a section is peeled, the tint and glow are completely
-      hidden**, and hovering an un-peeled section reveals them as a peek.
-      This needed more than just relying on the skin sitting visually on top
-      of the flesh (z-index alone) — the whole-banana artwork is a tapered
-      silhouette on a *transparent* background, not a filled rectangle, so a
-      glow's `drop-shadow()` can bleed through the skin's own transparent
-      padding even while the skin is "on top." The real fix: the flesh layer
-      defaults to `opacity: 0` (genuinely invisible, not just visually
-      covered), and the skin now sits *before* the flesh in the DOM
-      (z-index still keeps it visually on top) specifically so
-      `.peel-section:hover + .peel-flesh-section` and
-      `.peel-section.peeled + .peel-flesh-section` can target just that
-      section's own flesh via the adjacent-sibling combinator. Peeling
-      (click) reveals it permanently, same as hovering does temporarily.
-      The score is the **plain
-      average of all 3 peeled sections' own points** — each section's points
-      are interpolated continuously within its own tier's `[min,max]` band
-      by `pointsForFreshness()` (so two sections in the same tier still
-      score a little differently), with no extra roll on top. The overall
-      rarity *label* shown is separate and still leans on your best single
-      section (`(avg + best) / 2`) so one great peel visibly pulls the label
-      up even though the score itself stays a plain average. Clicking a
-      section also floats its own point value (`+N pts`, from that same
-      `pointsForFreshness()` call) for ~2 seconds — sitting just below the
-      tier-name label (which fades faster, 1.3s), so you get both the
-      rarity word and the actual number without them overlapping.
-    - **Actual odds** (brownness rolls as `100 * U²`, `U~Uniform(0,1)`, so a
-      single section's tier has an exact closed-form chance `√(max/100) -
-      √(prevMax/100)`; the overall banana label uses `(avg+best)/2` of 3
-      rolls, no closed form, simulated at N=8,000,000). `max` values are
-      constructed, not eyeballed: pick a target per-section percentage for
-      every tier, take the cumulative sum `S` (as a fraction), and
-      `max = 100 * S²` gives the exact boundary that realizes it — inverting
-      the closed-form above. Current target shares: 5/10/40.81/18.14/11.34/
-      6.80/3.97/2.27/1.13/0.45/0.1 (Rotten..Celestial) — Rotten/Crap were cut
-      to 5%/10% and the freed-up 10 points folded back into Common..Divine
-      proportionally (each scaled by the same factor), so the shape above
-      Crap is identical to the previous version, just uniformly more common.
-      A natural-feeling decay, **not** enforced to be strictly monotonic.
-      The anchor: **Celestial, the rarest slice, is pinned at exactly
-      1-in-1,000 (0.1%) per section** — to change it, rescale the other ten
-      shares to still sum to 100 and re-derive `max = 100 * S²`.
-
-      The overall banana label does **not** inherit that 1-in-1,000 anchor —
-      the best-of-3 term biases it toward rarer classifications than any
-      single roll would suggest, and that compounds hard once the low tiers
-      shrank: Uncommon (~34.1%) and Rare (~30.0%) now actually edge out
-      Common (~25.2%) as the label's most likely results, since Common's own
-      share dropped relatively less than the tiers just above it gained —
-      fine, since the shape doesn't need to be strictly monotonic, but worth
-      knowing the label's peak isn't Common anymore. Celestial's *label*
-      chance is still far below 1-in-1,000 — it didn't land once in
-      8,000,000 simulated trials. **The 1-in-1,000 is about the per-section
-      roll specifically**, not the compound label. Re-simulate before
-      retuning any of this further:
-
-      | Tier | Per-section (target) | Banana label |
-      |---|---|---|
-      | Rotten | 5.0% | 0.018% |
-      | Crap | 10.0% | 0.48% |
-      | Common | 40.81% | 25.22% |
-      | Uncommon | 18.14% | 34.12% |
-      | Rare | 11.34% | 30.00% |
-      | Epic | 6.80% | 9.00% |
-      | Mythic | 3.97% | 1.03% |
-      | Legendary | 2.27% | 0.113% (~1 in 885) |
-      | Ascended | 1.13% | 0.0085% (~1 in 11,700) |
-      | Divine | 0.45% | 0.0003% (~1 in 296,300) |
-      | Celestial | 0.1% (exactly 1-in-1,000) | ~0% (0/8,000,000 trials) |
-    - **Space bar**: peels the next un-peeled section left-to-right during a
-      round (a real `.click()` on that section, reusing the normal peel
-      logic), or triggers **Play again** from the end screen — a single
-      `keydown` listener on `document` with a `mode` flag (`'game'` /
-      `'end'` / `'leaderboard'`) that each `render*()` function repoints, so
-      it always does the right thing for whatever's currently showing. It
-      backs off entirely whenever an `<input>`/`<textarea>` has focus (the
-      name field), so typing an actual space into your banana's name still
-      works normally instead of restarting the round.
-    - The end screen lets you name that specific banana and **Save** it —
-      persisted server-side on the Pi as a JSON-lines `.txt` file
-      (`src/banana_leaderboard.txt`, one entry per line, capped at 100,
-      re-sorted and truncated on every save) via two new Flask routes:
-      `GET/POST /banana/leaderboard`. This means the leaderboard is shared
-      across every visitor/device hitting this Pi, unlike the original
-      version which used per-browser `localStorage` — that data doesn't
-      carry over; this is a genuine storage-backend swap, not an import.
-      Losing network/Flask access degrades gracefully: peeling still works,
-      Save/Leaderboard just silently no-op (see `peel-banana-export/`'s own
-      top-of-file comment for the exact contract a host needs to implement).
-    - **View leaderboard** (also reachable from the in-game HUD) lists every
-      saved banana highest-score-first, each row showing a small thumbnail
-      redrawn from that entry's own saved per-section browning — not a
-      generic icon — next to its name, tier, and score.
-    - The whole flow (play → save → leaderboard → play again) is
-      self-contained inside the widget now; a host page only calls
-      `mountPeelBananaGame(container)` once. `onEnd(score)` is still an
-      optional hook but nothing internal depends on the host calling back in.
 - **`/commands`** — raw hardware control, explicitly **decoupled from game
   state**: maglock lock/unlock buttons, an LED color picker + brightness slider +
   off button, and a live sensor table (IR, all 4 RFID readers, both lock states)
@@ -254,9 +130,7 @@ Routes: `/state` (GET), `/command/<cmd>` (POST), `/force/<stage_id>` (POST),
 `/through/<stage_id>` (POST, only `WAIT_IR`/`SCANNING`), `/raw/lock/<52|44>/<lock|unlock>`
 (POST), `/raw/led` (POST, JSON `{color, brightness}`), `/raw/led/off` (POST),
 `/sensors` (GET — sends `SENSORS` over serial, sleeps ~0.2s, returns the cached
-parse), `/banana/leaderboard` (GET returns the sorted list; POST `{name, score,
-tierKey, tierLabel, tierColor, brownness}` appends one entry — easter egg, unrelated
-to room state).
+parse).
 
 ## Deploying / flashing workflow
 
@@ -303,8 +177,7 @@ to room state).
   **stdin** from the channel, which keeps the channel from ever reporting EOF
   even after the visible commands finish. Add `< /dev/null` too, or just don't
   wait on that channel's output — open a fresh connection to check results
-  instead. Hit this exact one testing the Flask app briefly to verify the
-  peel-banana routes.
+  instead.
 
 ## Known open items (raised, not yet addressed — ask before changing)
 
@@ -329,17 +202,11 @@ src/
   SystemsTest.ino           Mega firmware — state machine + serial protocol
   app.py                    Flask app — serial bridge + web routes
   requirements.txt          flask, pyserial
-  banana_leaderboard.txt    generated at runtime - peel-banana save data, JSON per line
   templates/
     _nav.html                shared nav bar (Control panel | Commands | Settings)
-    index.html                Control Panel (incl. the peel-banana easter egg)
+    index.html                Control Panel
     commands.html             raw hardware control + live sensors
     settings.html             placeholder
-  static/
-    peel-banana/              served copy of peel-banana-export/ (game easter egg)
-peel-banana-export/           source copy of the standalone mini-game (unrelated
-                               project, "Little Nook") - not served directly, see
-                               src/static/peel-banana/ for the copy Flask uses
 ```
 
 Mirrored on the Pi at `~/escape/` in the same shape.
