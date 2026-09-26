@@ -19,6 +19,13 @@ The Pi is the only serial client. Anything that wants to control the room (a
 browser, a script, whatever) goes through the Flask app, which forwards plain-text
 line commands to the Mega and parses whatever it prints back.
 
+## Source control
+
+Repo: https://github.com/muuskrat/Pi-Mega-Brain (`main` branch). `.pio/`,
+`__pycache__/`, and the runtime-generated `src/banana_leaderboard.txt` are
+gitignored — don't try to commit those. Git author identity (`user.name`/
+`user.email`) is set repo-locally on this machine, not globally.
+
 ## Hardware / pin map
 
 | Function | Pin(s) | Notes |
