@@ -4,6 +4,25 @@ This file exists so a future session (human or Claude) can pick this project bac
 without re-deriving everything from scratch. Keep it updated whenever the system
 changes — new states, new commands, new hardware, new gotchas.
 
+**What this is:** the control system for a physical escape-room puzzle room. An
+Arduino Mega runs the actual game logic (RFID scanning, maglocks, LEDs, an IR
+trip beam) and a Raspberry Pi runs a Flask web app that staff use, from a
+browser, to start/reset/monitor the room and to force/skip stages during
+testing.
+
+## Contents
+
+- [System overview](#system-overview)
+- [Source control](#source-control)
+- [Hardware / pin map](#hardware--pin-map)
+- [State machine](#state-machine-systemstestino)
+- [Serial protocol](#serial-protocol-pi--mega-one-command-per-line-case-insensitive)
+- [Web app](#web-app-apppy--templates)
+- [Running the Flask app locally](#running-the-flask-app-locally)
+- [Deploying / flashing workflow](#deploying--flashing-workflow)
+- [Known open items](#known-open-items-raised-not-yet-addressed--ask-before-changing)
+- [File layout](#file-layout)
+
 ## System overview
 
 Two machines:
@@ -131,6 +150,23 @@ Routes: `/state` (GET), `/command/<cmd>` (POST), `/force/<stage_id>` (POST),
 (POST), `/raw/led` (POST, JSON `{color, brightness}`), `/raw/led/off` (POST),
 `/sensors` (GET — sends `SENSORS` over serial, sleeps ~0.2s, returns the cached
 parse).
+
+## Running the Flask app locally
+
+To run `app.py` on its own (e.g. testing the web UI without touching the Pi
+deploy workflow):
+
+1. `pip install -r src/requirements.txt` (just `flask` and `pyserial`).
+2. Edit `SERIAL_PORT` at the top of `app.py` — it's hardcoded to `/dev/ttyACM0`,
+   which only exists on Linux with the Mega plugged in. On Windows this needs
+   to be a `COM<n>` port (check Device Manager); on Linux/macOS confirm the
+   actual device with `ls /dev/tty*` before/after plugging the Mega in.
+3. `python src/app.py` — serves on `http://0.0.0.0:5000`.
+
+Without a Mega actually attached to that port, `serial.Serial(...)` at
+`app.py` import time raises `SerialException` immediately and the app won't
+start at all — there's no mock/offline mode, so testing the UI genuinely
+requires the real hardware connected.
 
 ## Deploying / flashing workflow
 
